@@ -16,11 +16,6 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.figure import Figure
 
 class AccererometerSession():
-    A_MODULE_NAME : str = "a module"
-    ALIGNMENT_ANGLE_NAME : str = "angle"
-    AX_NAME : str  = "ax"
-    AY_NAME : str = "ay"
-    AZ_NAME : str = "az"
 
     def __init__(self, name : str, df : DataFrame, taken_steps : int, full_visualization : bool = False):
         self._name = name
@@ -29,45 +24,79 @@ class AccererometerSession():
         self._FULL_VISUALIZATION = full_visualization
         
         self._hills : dict[str, np.ndarray] = {
-            "module" : np.ndarray(),
-            "angle" : np.ndarray()
+            "module" : np.empty(0),
+            "angle" : np.empty(0)
         }
         self._average_hill_module : float
         self._average_hill_angle : float
+        self._ideal_module : float 
+        self._ideal_angle : float
 
     @property
     def name(self) -> str:
         return self._name
 
     @property
-    def hills(self):
-        return self._hills
-
-    @property
     def TAKEN_STEPS(self) -> int:
         return self._TAKEN_STEPS
 
-    def describe_hills(self, display : bool):
-        string = f"""
-        Comparison between hill count and real steps taken:
-            - Hill count: {len(self.hills["module"])}
-            - Real step count: {self.TAKEN_STEPS}
+    @property
+    def ideal_module(self) -> float:
+        return self._ideal_module
+    
+    @property
+    def ideal_angle(self) -> float:
+        return self._ideal_angle
+
+    def describe_hills(self, display : bool = None):
+        if display == None:
+            display = self._FULL_VISUALIZATION
+        
+        self.log(f"Describing hills of {self._name}:", display)
+
+        string = f"""Comparison between hill count and real steps taken:
+    - Hill count: {len(self._hills["module"])}
+    - Real step count: {self.TAKEN_STEPS}
         """
         self.log(string, display)
 
         self.calculate_hills_averages()
 
-        string = f"""
-        Average hills values:
-            - Average module: {self.hills["average module"]}
-            - Average angle: {self.hills["average angle"]}
+        string = f"""Average hills values:
+    - Average module: {self._hills["average module"]}
+    - Average angle: {self._hills["average angle"]}
         """
 
         self.log(string, display)
 
-        string = f"""
-        Needed threshold to match step count:
+        best_index, according_steps = self.ideal_threshold()
+        module_value = self._hills["module"][best_index]
+        self._ideal_module = module_value
+        angle_value = self._hills["angle"][best_index]
+        self._ideal_angle = angle_value
+
+        string = f"""Needed threshold to match step count:
+    - Module: {module_value}
+    - Angle: {angle_value}
+    - Real Step Count: {self.TAKEN_STEPS}, Steps according to this threshold: {according_steps}
         """
+        self.log(string, display)
+
+    def ideal_threshold(self) -> tuple[np.intp, int]:
+        modules = self._hills["module"]
+        angles = self._hills["angle"]
+
+        n = len(modules)
+        higher_elements_count = np.zeros(n, dtype=int)
+
+        for i in range(n):
+            higher_elements_count[i] = np.sum((modules > modules[i]) & (angles > angles[i]))
+        
+        best_index = np.argmin(np.abs(higher_elements_count - self.TAKEN_STEPS))
+        steps = higher_elements_count[best_index]
+
+        return best_index, steps
+        
 
     def calculate_hills_percentiles(self, percentile : float):
         module_percentile = np.percentile(self.hills["module"], percentile)
@@ -76,18 +105,12 @@ class AccererometerSession():
         self.hills[f"module percentile {percentile}"] = module_percentile
         self.hills[f"angle percentile {percentile}"] = angle_percentile
 
-    def angle_ideal_threshold(self):
-        pass
-
-    def module_ideal_threshold(self):
-        pass
-
     def calculate_hills_averages(self) -> None:
-        average_module = np.mean(self.hills["module"])
-        average_angle = np.mean(self.hills["angle"])
+        average_module = np.mean(self._hills["module"])
+        average_angle = np.mean(self._hills["angle"])
 
-        self.hills["average module"] = average_module
-        self.hills["average angle"] = average_angle
+        self._hills["average module"] = average_module
+        self._hills["average angle"] = average_angle
 
     def calculate_module_hills(self):
         values = self._df["a module"].values
@@ -97,10 +120,10 @@ class AccererometerSession():
 
         # Getting the values from the indices:
         module_values = values[hills]
-        alignment_angles = self._df["alignment angle"].iloc[hills]
+        alignment_angles = self._df["angle"].iloc[hills].values
 
-        self.hills["module"] = module_values
-        self.hills["angle"] = alignment_angles
+        self._hills["module"] = np.sort(module_values)
+        self._hills["angle"] = alignment_angles
 
     def generate_module_angle_plot(self):
         figure, plots = plt.subplots(3, 1, figsize=(10, 8), sharex=True)
@@ -113,12 +136,12 @@ class AccererometerSession():
         plots[2].set_title('Z-axis Acceleration over Time')
         plots[2].grid(True, linestyle='--', alpha=0.6)
 
-        plots[0].plot(self._df['time'], self._df['acceleration module'], color='tab:blue')
+        plots[0].plot(self._df['time'], self._df['a module'], color='tab:blue')
         plots[0].set_ylabel('Acceleration Module (m/s²)')
         plots[0].set_title('Acceleration Magnitude over Time')
         plots[0].grid(True, linestyle='--', alpha=0.6)
 
-        plots[1].plot(self._df['time'], self._df['alignment angle'], color='tab:orange')
+        plots[1].plot(self._df['time'], self._df['angle'], color='tab:orange')
         plots[1].set_ylabel('Dominant-axis Angle (°)')
         plots[1].set_title('Alignment Angle over Time')
         plots[1].grid(True, linestyle='--', alpha=0.6)
@@ -126,10 +149,10 @@ class AccererometerSession():
         plt.tight_layout()
 
     def calculate_alignment_angle(self):
-        largest_component = np.maximum.reduce([self._df[AccererometerSession.AX_NAME].abs(), self._df["ay"].abs(), self._df["az"].abs()])
+        largest_component = np.maximum.reduce([self._df["ax"].abs(), self._df["ay"].abs(), self._df["az"].abs()])
         
         # Cosine of the angle:
-        ratio = largest_component / self._df[AccererometerSession.ACCELERATION_MODULE_NAME]
+        ratio = largest_component / self._df["a module"]
         
         # Angle itself:
         angle = np.arccos(ratio)
@@ -137,12 +160,12 @@ class AccererometerSession():
         # Angle to degrees:
         angle = angle * 180 / np.pi
 
-        self._df[AccererometerSession.ALIGNMENT_ANGLE_NAME] = angle
+        self._df["angle"] = angle
 
     def calculate_acceleration_module(self):
         # Calculated as sqrt(x² + y² + z²)
         module = np.sqrt(self._df["ax"]**2 + self._df["ay"]**2 + self._df["az"]**2)
-        self._df[AccererometerSession.ACCELERATION_MODULE_NAME] = module
+        self._df["a module"] = module
 
     def remove_edges(self, bottom : int, top : int):
         self._df = self._df[bottom:]
@@ -177,7 +200,8 @@ class AccererometerSession():
         # Automatic adjust to ensure the subplots fit into the main plot.
         plt.tight_layout()
     
-    def visualize_3d_vector(self, negative_limit=-10, positive_limit=10):
+
+    def visualize_3d_vector_plot(self, negative_limit=-20, positive_limit=20):
         # Creating the container figure:
         figure = plt.figure()
         figure.suptitle(self.name)
@@ -229,11 +253,11 @@ class AccererometerSession():
                 length=module,        # scale by module
                 color='r'
             )
-
             return arrow,
 
         # Build and store animation
         anim = FuncAnimation(figure, update, frames=len(self._df), interval=110)
+        self.show_plot()
 
     def log(self, string : str, display : bool = None):
         if display == None:
