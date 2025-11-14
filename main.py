@@ -9,6 +9,7 @@ from AccelerometerSession import AccererometerSession
 
 
 def main():
+    # Defining constants:
     NORMAL_WALKING_FILENAME = "NormalWalking.csv"
     SLOW_WALKING_FILENAME = "SlowWalking.csv"
     CRAZY_JUMPING_FILENAME = "CrazyJumping.csv"
@@ -62,11 +63,27 @@ def main():
     log(f"Dynamic threshold average accuracy: {accuracy / 3}", True)
 
 def count_steps_dynamic_threshold(walking_info : AccererometerSession, display : bool = False):
+    """Counts steps using dynamic thresholds.
+    Args:
+        walking_info (AccererometerSession): Session to analyze.
+        display (bool, optional): Whether to display the plot. Defaults to False.
+    Returns:
+        float: Accuracy of the step counting.
+    """
     accuracy = walking_info.create_dynamic_thresholds_plot()
     walking_info.show_plot(display)
     return accuracy
 
 def count_steps(walking_info : AccererometerSession, module_threshold : float, angle_threshold : float, display : bool = False):
+    """Counts steps using static thresholds.
+    Args:
+        walking_info (AccererometerSession): Session to analyze.
+        module_threshold (float): Module threshold to use.
+        angle_threshold (float): Angle threshold to use.
+        display (bool, optional): Whether to display the plot. Defaults to False.
+    Returns:
+        float: Accuracy of the step counting.
+    """
     accuracy = walking_info.create_estimated_steps_plot(module_threshold, angle_threshold)
     walking_info.show_plot(display)
     return accuracy
@@ -80,7 +97,6 @@ def visualize_data(normal_walking : AccererometerSession, slow_walking : Accerer
         crazy_jumping (pd.DataFrame): Jumping at random directions, Jumping in the same place, walking, staying... DataFrame
         full_visualization (bool, optional): When set to "True" all the processed information will be displayed, when False, only the last result will be displayed. Defaults to False.
     """
-
 
     # Visualazing acceleration over axis and over time:
     normal_walking.generate_acceleration_plot()
@@ -129,10 +145,12 @@ def visualize_data(normal_walking : AccererometerSession, slow_walking : Accerer
     crazy_jumping.generate_module_angle_plot()
     crazy_jumping.show_plot()
 
+    # Describing hills:
     normal_walking.describe_hills(True)
     slow_walking.describe_hills(True)
     crazy_jumping.describe_hills(True)
 
+    # Selecting ideal thresholds:
     NORMAL_WALKING_WEIGHT = 0.45
     SLOW_WALKING_WEIGHT = 0.45
     CRAZY_JUMPING_WEIGHT = 0.1
