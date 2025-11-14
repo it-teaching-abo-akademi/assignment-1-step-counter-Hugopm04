@@ -59,7 +59,7 @@ def main():
     accuracy += count_steps_dynamic_threshold(normal_walking, full_visualization)
     accuracy += count_steps_dynamic_threshold(slow_walking, full_visualization)
     accuracy += count_steps_dynamic_threshold(crazy_jumping, full_visualization)
-    log(f"Dynamic threshold average accuracy: {accuracy / 3}", full_visualization)
+    log(f"Dynamic threshold average accuracy: {accuracy / 3}", True)
 
 def count_steps_dynamic_threshold(walking_info : AccererometerSession, display : bool = False):
     accuracy = walking_info.create_dynamic_thresholds_plot()
@@ -153,26 +153,6 @@ def visualize_data(normal_walking : AccererometerSession, slow_walking : Accerer
                 """
             )
     return ideal_module, ideal_angle
-
-def alignment_angle(df : pd.DataFrame) -> np.ndarray:
-    largest_component = np.maximum.reduce([df["ax"].abs(), df["ay"].abs(), df["az"].abs()])
-    
-    # Cosine of the angle:
-    ratio = largest_component / df["acceleration module"]
-    
-    # Angle itself:
-    angle = np.arccos(ratio)
-    
-    # Angle to degrees:
-    angle = angle * 180 / np.pi
-
-    return angle
-
-def acceleration_module(df : pd.DataFrame) -> np.ndarray:
-    # Calculated as sqrt(x² + y² + z²)
-    module = np.sqrt(df["ax"]**2 + df["ay"]**2 + df["az"]**2)
-    return module
-
 
 def read_data(filename : str) -> pd.DataFrame:
     """Returns a Pandas DataFrame given a csv file.

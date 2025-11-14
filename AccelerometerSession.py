@@ -11,8 +11,7 @@ import numpy as np
 from matplotlib.animation import FuncAnimation
 
 class AccererometerSession():
-
-    def __init__(self, name : str, df : DataFrame, taken_steps : int, full_visualization : bool = False, dynamic_threshold_chunk_size : int = 50):
+    def __init__(self, name : str, df : DataFrame, taken_steps : int, full_visualization : bool = False, dynamic_threshold_chunk_size : int = 20):
         self._name = name
         self._df = df
         self._TAKEN_STEPS = taken_steps
@@ -87,15 +86,12 @@ class AccererometerSession():
         self._add_threshold_lines(subplots[0], "module")
         subplots[0].set_title("Acceleration Module")
         subplots[0].grid(True, linestyle="--", alpha=0.6)
-        
-        subplots[0].legend()
 
         # Alignment angle
         subplots[1].plot(self._df["time"], self._df["angle"], color="tab:orange")
         self._add_threshold_lines(subplots[1], "angle")
         subplots[1].set_title("Alignment Angle")
         subplots[1].grid(True, linestyle="--", alpha=0.6)
-        subplots[1].legend()
 
         accuracy = 1 - abs(self._estimated_dynamic_steps - self.TAKEN_STEPS) / self.TAKEN_STEPS
         accuracy = accuracy * 100
@@ -123,6 +119,9 @@ class AccererometerSession():
             subplot.hlines(min, time, next_timestamp, color="orange", linestyle=":", label="Min")
 
     def _calculate_dynamic_thresholds(self):
+        hills_module = self._hills["module"]
+        hills_angle = self._hills["angle"]
+        hills_timestamp = self._hills["timestamp"]
         modules = self._df["module"].values
         angles = self._df["angle"].values
         timestamps = self._df["time"].values
@@ -138,21 +137,23 @@ class AccererometerSession():
             
             max = np.max(module_chunk)
             min = np.min(module_chunk)
-            module_threshold = 0.10 * (max + min)
+            module_threshold = 0.5 * (max + min)
             self._dynamic_thresholds["module"].append(module_threshold)
             self._dynamic_thresholds["module max"].append(max)
             self._dynamic_thresholds["module min"].append(min)
 
             max = np.max(angle_chunk)
             min = np.min(angle_chunk)
-            angle_threshold = 0.8 * (max + min)
+            angle_threshold = 0.5 * (max + min)
             self._dynamic_thresholds["angle"].append(angle_threshold)
             self._dynamic_thresholds["angle max"].append(max)
             self._dynamic_thresholds["angle min"].append(min)
             
             self._dynamic_thresholds["time"].append(timestamp_chunk[0])
 
-            estimated_steps += np.sum((module_chunk > module_threshold) & (angle_chunk > angle_threshold))
+            #estimated_steps += np.sum((module_chunk > module_threshold) & (angle_chunk < angle_threshold))
+            are_steps = ((hills_timestamp >= timestamp_chunk[0]) & (hills_timestamp <= timestamp_chunk[-1])) & (hills_module > module_threshold) & (hills_angle < angle_threshold)
+            estimated_steps += np.sum(are_steps)
 
         for key in self._dynamic_thresholds:
             self._dynamic_thresholds[key] = np.array(self._dynamic_thresholds[key])
@@ -176,8 +177,9 @@ class AccererometerSession():
         
         # Add estimated steps lines to all subplots
         for ax in subplots:
-            for t_event in self._hills["timestamp"]:
-                ax.axvline(t_event, color='gray', alpha=0.7)
+            for mod, ang, t_event in zip(self._hills["module"], self._hills["angle"], self._hills["timestamp"]):
+                if mod > module_threshold and ang < angle_threshold:
+                    ax.axvline(t_event, color='gray', alpha=0.7)
 
         # Legend
         for ax in subplots:
@@ -237,7 +239,7 @@ class AccererometerSession():
     def values_higher(self, module : float, angle : float):
         modules = self._hills["module"]
         angles = self._hills["angle"]
-        count = np.sum((modules > module) & (angles > angle))
+        count = np.sum((modules > module) & (angles < angle))
         return count
 
     def calculate_hills_averages(self) -> None:
@@ -337,7 +339,6 @@ class AccererometerSession():
         # Automatic adjust to ensure the subplots fit into the main plot.
         plt.tight_layout()
     
-
     def visualize_3d_vector_plot(self, negative_limit=-20, positive_limit=20):
         # Creating the container figure:
         figure = plt.figure()
