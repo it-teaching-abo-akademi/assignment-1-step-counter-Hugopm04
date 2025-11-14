@@ -177,9 +177,8 @@ class AccererometerSession():
         
         # Add estimated steps lines to all subplots
         for ax in subplots:
-            for mod, ang, t_event in zip(self._hills["module"], self._hills["angle"], self._hills["timestamp"]):
-                if mod > module_threshold and ang < angle_threshold:
-                    ax.axvline(t_event, color='gray', alpha=0.7)
+            for t_event in self._hills["timestamp"]:
+                ax.axvline(t_event, color='gray', alpha=0.7)
 
         # Legend
         for ax in subplots:
