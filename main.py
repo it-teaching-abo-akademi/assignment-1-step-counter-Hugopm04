@@ -1,34 +1,11 @@
-# For 3D graphs animated over time.
-from matplotlib.animation import FuncAnimation
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.figure import Figure
-
-# For displaying graphs.
-import matplotlib.pyplot as plt
-
-# For smooth curves in histograms
-import seaborn as sns
-
 # For faster data proccesing.
 import numpy as np
 
 # For csv retrieving and information proccesing.
 import pandas as pd
 
-# For more clarity and readable code.
-from typing import Tuple
-
 # For working with the accelerometer data (custom module) 
 from AccelerometerSession import AccererometerSession
-
-############# Defining aliases: #################
-
-# For hills and valleys (extrema)
-Extrema = Tuple[np.ndarray, np.ndarray]
-# For hills and valleys of a full dataframe
-ExtremaCollection = Tuple[Extrema, Extrema, Extrema]
-
-#################################################
 
 
 def main():
@@ -45,7 +22,7 @@ def main():
     slow_walking = read_data(SLOW_WALKING_FILENAME)
     crazy_jumping = read_data(CRAZY_JUMPING_FILENAME)
 
-    full_visualization = False
+    full_visualization = True
     normal_walking = AccererometerSession(
         "Normal Walking",
         normal_walking,
@@ -68,18 +45,33 @@ def main():
         )
 
     # Performing EDA:
-    visualize_data(normal_walking, slow_walking, crazy_jumping, False)
+    basic_module_threshold, basic_angle_threshold = visualize_data(normal_walking, slow_walking, crazy_jumping, full_visualization)
+    
+    # Testing Basic Step Counter:
+    accuracy = 0
+    accuracy += count_steps(normal_walking, basic_module_threshold, basic_angle_threshold, full_visualization)
+    accuracy += count_steps(slow_walking, basic_module_threshold, basic_angle_threshold, full_visualization)
+    accuracy += count_steps(crazy_jumping, basic_module_threshold, basic_angle_threshold, full_visualization)
+    log(f"Estatic threshold average accuracy: {accuracy / 3}", full_visualization)
 
-def count_steps(timestamps : pd.Series, x_arr : pd.Series, y_arr : pd.Series, z_arr : pd.Series):
-    MODULE_THRESHOLD = 0
-    ANGLE_THRESHOLD = 0
+    # Testing Dynamic Step Counter:
+    accuracy = 0
+    accuracy += count_steps_dynamic_threshold(normal_walking, full_visualization)
+    accuracy += count_steps_dynamic_threshold(slow_walking, full_visualization)
+    accuracy += count_steps_dynamic_threshold(crazy_jumping, full_visualization)
+    log(f"Dynamic threshold average accuracy: {accuracy / 3}", full_visualization)
 
-    module = np.sqrt(x_arr**2 + y_arr**2 + z_arr**2)
-    angle = ...
+def count_steps_dynamic_threshold(walking_info : AccererometerSession, display : bool = False):
+    accuracy = walking_info.create_dynamic_thresholds_plot()
+    walking_info.show_plot(display)
+    return accuracy
 
-    pass
+def count_steps(walking_info : AccererometerSession, module_threshold : float, angle_threshold : float, display : bool = False):
+    accuracy = walking_info.create_estimated_steps_plot(module_threshold, angle_threshold)
+    walking_info.show_plot(display)
+    return accuracy
 
-def visualize_data(normal_walking : AccererometerSession, slow_walking : AccererometerSession, crazy_jumping : AccererometerSession, full_visualization : bool = False) -> None:
+def visualize_data(normal_walking : AccererometerSession, slow_walking : AccererometerSession, crazy_jumping : AccererometerSession, full_visualization : bool = False) -> tuple[float, float]:
     """Performs basic EDA.
 
     Args:
@@ -112,6 +104,11 @@ def visualize_data(normal_walking : AccererometerSession, slow_walking : Accerer
     slow_walking.remove_edges(17, 29)
     # Crazy jumping didn't have start and finnish kick.
 
+    # Now we can calculate all the infered data of the sample:
+    normal_walking.setup()
+    slow_walking.setup()
+    crazy_jumping.setup()
+
     # Visualazing acceleration over axis and over time again:
     normal_walking.generate_acceleration_plot()
     normal_walking.show_plot()
@@ -122,17 +119,7 @@ def visualize_data(normal_walking : AccererometerSession, slow_walking : Accerer
     crazy_jumping.generate_acceleration_plot()
     crazy_jumping.show_plot()
 
-
-    # Calculating acceleration vector module:
-    normal_walking.calculate_acceleration_module()
-    slow_walking.calculate_acceleration_module()
-    crazy_jumping.calculate_acceleration_module()
-    
-    # Adding the angle between the biggest component and the full vector:
-    normal_walking.calculate_alignment_angle()
-    slow_walking.calculate_alignment_angle()
-    crazy_jumping.calculate_alignment_angle()
-
+    # Visualizing acceleration in Z, the module and the alignment angle:
     normal_walking.generate_module_angle_plot()
     normal_walking.show_plot()
 
@@ -141,11 +128,6 @@ def visualize_data(normal_walking : AccererometerSession, slow_walking : Accerer
 
     crazy_jumping.generate_module_angle_plot()
     crazy_jumping.show_plot()
-
-    # Calculating the hills of the module:
-    normal_walking.calculate_module_hills()
-    slow_walking.calculate_module_hills()
-    crazy_jumping.calculate_module_hills()
 
     normal_walking.describe_hills(True)
     slow_walking.describe_hills(True)
@@ -165,11 +147,12 @@ def visualize_data(normal_walking : AccererometerSession, slow_walking : Accerer
     ideal_angle = ideal_angle
 
     print(f"""
-Thus, the final selected threshold will be:
-    - {ideal_module} m/s² for module.
-    - {ideal_angle} degrees for angle.
-            """
-        )
+    Thus, the final selected threshold will be:
+        - {ideal_module} m/s² for module.
+        - {ideal_angle} degrees for angle.
+                """
+            )
+    return ideal_module, ideal_angle
 
 def alignment_angle(df : pd.DataFrame) -> np.ndarray:
     largest_component = np.maximum.reduce([df["ax"].abs(), df["ay"].abs(), df["az"].abs()])
