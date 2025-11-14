@@ -10,9 +10,9 @@ from AccelerometerSession import AccererometerSession
 
 def main():
     # Defining constants:
-    NORMAL_WALKING_FILENAME = "NormalWalking.csv"
-    SLOW_WALKING_FILENAME = "SlowWalking.csv"
-    CRAZY_JUMPING_FILENAME = "CrazyJumping.csv"
+    NORMAL_WALKING_FILENAME = "Data/NormalWalking.csv"
+    SLOW_WALKING_FILENAME = "Data/SlowWalking.csv"
+    CRAZY_JUMPING_FILENAME = "Data/CrazyJumping.csv"
 
     NORMAL_WALKING_STEPS = 103
     SLOW_WALKING_STEPS = 109
