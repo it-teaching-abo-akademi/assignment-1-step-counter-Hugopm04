@@ -53,12 +53,8 @@ You can find the full discussion and visual results in the Assignment1_Hugo_Pér
 ## How to Run It
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/step-detection-accelerometer.git
-cd step-detection-accelerometer
-
-# Install dependencies
-pip install -r requirements.txt
+git clone https://github.com/it-teaching-abo-akademi/assignment-1-step-counter-Hugopm04.git
 
 # Run analysis
-python src/main.py
+python main.py
 
